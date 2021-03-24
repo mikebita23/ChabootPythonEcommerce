@@ -182,6 +182,7 @@ def token_dic(shops):
 
 def build_messages_dic(shops):
     messages_dic_1, messages_dic_2 = {}, {}
+    n: int
     for n in range(1,3):
         for shop in shops:
             file = codecs.open("shops/{}/messages_dic_{}.csv".format(shop,n),encoding="utf-8")
@@ -1156,8 +1157,8 @@ def shopify_modify_address(shop,contexts,order_id):
     put_data = {"order":{"id":order_id, "shipping_address":address}}
     shopify_request(shop,"put","orders/{}.json".format(order_id),put_data=put_data)
     return True
-
-def shopify_refund(shop,order_id):
+    ####
+def shopify_refund(shop,order_id) -> object:
     r = shopify_request(shop,"get","orders/{}.json".format(order_id),"?status=any&fields=line_items")
     line_items = r.json()["order"]["line_items"]
     line_items_2 = []

@@ -15,7 +15,7 @@ import codecs
 import html
 import json
 import base64
-
+import api
 import apiai
 import requests
 import urllib.request
@@ -28,6 +28,8 @@ from bs4 import BeautifulSoup
 from PyQt5.QtWebEngineWidgets import QWebEnginePage
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QtCore import QUrl
+
+from _Buffalo.Buffalo import apiai_request
 
 Qapp = QApplication(sys.argv)
 
@@ -79,6 +81,10 @@ class resquest():
         return r
 
     def apiai_request(ai, text, session_id, contexts=[]):
+        """
+
+        :type text: object
+        """
         request = ai.text_request()
         request.lang = 'fr'
         request.session_id = session_id
@@ -242,8 +248,7 @@ def update_order_ids(shop):
         last_id = first_order_id
     k = ""
     while k != "stop":
-        r = shopify_request(shop, "get", "orders.json",
-                            "?since_id={}&status=any&limit=250&fields=id,name".format(last_id))
+        r = shopify_request(shop, "get", "orders.json","?since_id={}&status=any&limit=250&fields=id,name".format(last_id))
         j = r.json()
         n_orders = len(j["orders"])
         if n_orders == 0:
@@ -306,15 +311,13 @@ def shopify_get_orders(shop, message, customer_id):
                 continue
             if order_id == "new test":
                 return {}
-        r = shopify_request(shop, "get", "orders/{}.json".format(order_id),
-                            "?status=any&fields=total_price,fulfillments,created_at,name,customer")
+        r = shopify_request(shop, "get", "orders/{}.json".format(order_id),"?status=any&fields=total_price,fulfi llments,created_at,name,customer")
         data = r.json()["order"]
     elif customer_id != "not found":
-        r = shopify_request(shop, "get", "customers/{}/orders.json".format(customer_id),
-                            "?status=any&fields=id,total_price,fulfillments,created_at,name,customer")
+        r = shopify_request(shop, "get", "customers/{}/orders.json".format(customer_id),"?status=any&fields=id,total_price,fulfillments,created_at,name,customer")
 
         data0 = r.json()["orders"]
-        if data0 != []:
+        if data0:
             data = data0[0]
             order_id = data["id"]
         else:
@@ -1051,7 +1054,7 @@ def build_text_msg(shop, response, answer_id, message, order_info, history):
     return message_text
 
 
-def fb_new(shop, questions, order_info, message, answer_id, menace, score):
+def fb_new(shop, questions, order_info, message, answer_id, menace, score, apiai_request=None):
     if "modify_adress" in questions and order_info == {}:
         file = open("shops/{}/messages_cache.csv".format(shop), "r")
         cont = file.read()
@@ -1344,7 +1347,7 @@ while True:
         # GMAIL:
         r = gmail_request(shop, "get", "messages", endpoints="maxResults={}&q=label:inbox&".format(START))
         messages = r.json()["messages"]
-        for message in messages:
+        for message in message:
             message_id = message["id"]
             if message_id not in lst_message_ids:
 
