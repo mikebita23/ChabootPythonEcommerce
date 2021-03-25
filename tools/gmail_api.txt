@@ -1,0 +1,11 @@
+b inscription :
+
+user id : 103399615931002407986
+api key : AIzaSyDgpp-vR4esm3Adk5LflHnULURJd4epTus
+
+
+tracking more : 7ac331ef-2cee-44f5-a39f-2e1724a7e7b9
+
+
+
+https://stackoverflow.com/questions/10631042/how-to-generate-access-token-using-refresh-token-through-google-drive-api
