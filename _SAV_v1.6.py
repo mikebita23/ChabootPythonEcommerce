@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 #######################################################
-################ SAV V1.6 by W.SELLIER ################     #Version v1 Mike&Michel GLS
+################ SAV V1.6 by W.SELLIER ################ 23/03/2021 Michel and Mike
 #######################################################
 
 import re
@@ -15,6 +15,7 @@ import codecs
 import html
 import json
 import base64
+from typing import Union
 import requests
 import urllib.request
 import apiai
@@ -28,11 +29,13 @@ from PyQt5.QtWebEngineWidgets import QWebEnginePage
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QtCore import QUrl
 
-Qapp = QApplication(sys.argv)
-#PyQtWebEngines
+Qapp: Union[QApplication, QApplication] = QApplication(sys.argv)
+
+
+#PyQtWebEngine
 
 #######################################################
-
+    #la connexion tourne en boucle
 def gmail_request(shop,req_type,ressource,endpoints="",post_data={}):
     global user_id,api_key,client_id,client_secret,refresh_token,access_tokens
     tries = 0
@@ -42,18 +45,18 @@ def gmail_request(shop,req_type,ressource,endpoints="",post_data={}):
             cont = "https://www.googleapis.com/gmail/v1/users/{}/{}?{}key={}".format(user_id[shop],ressource,endpoints,api_key[shop])
             if req_type == "get":
                 r = requests.get(cont,headers={"Authorization":"OAuth {}".format(access_tokens[shop])}, timeout=15)
-                #print(r.json())
+                print(r.json())
             elif req_type == "post":
                 r = requests.post(cont,headers={"Authorization":"OAuth {}".format(access_tokens[shop])},json=post_data, timeout=15)
             if r.status_code > 300:
                 data = {"client_id":client_id[shop],"client_secret":client_secret[shop],"refresh_token":refresh_token[shop],"grant_type":"refresh_token"}
                 r2 = requests.post("https://www.googleapis.com/oauth2/v4/token",data=data, timeout=15)
-                #print(r2.json())
+                print(r2.json())
                 access_tokens[shop] = r2.json()["access_token"]
                 continue #retry a request with a new access_token
             break
         except:
-            print("connexion error on gmail, retrying...")
+            #print("connexion error on gmail, retrying...")
             time.sleep(10)
             tries += 1
     return r
@@ -182,7 +185,6 @@ def token_dic(shops):
 
 def build_messages_dic(shops):
     messages_dic_1, messages_dic_2 = {}, {}
-    n: int
     for n in range(1,3):
         for shop in shops:
             file = codecs.open("shops/{}/messages_dic_{}.csv".format(shop,n),encoding="utf-8")
@@ -339,7 +341,7 @@ def buffalo(shops, message, history):
     
 ###########################################################
     
-### CLass WebEnginePage
+    
 class Page(QWebEnginePage):
     global Qapp
     def __init__(self, url):
@@ -572,19 +574,42 @@ def gmail_get_message(shop,msg_id):
 
 	return message
 
+##################################################################################
+#Methode de recherche dans un texte / Deux commandes comprises entre 1000 et 60000
+##################################################################################
+
+# def detect_order_name(message):
+#     for text in [message["subject"],message["data"]]:
+#         order_name = "not found"
+#         match = re.findall(r"\D(\d{4,5})\D","{}{}{}".format("a",text,"a"))
+#         if match:
+#             num = int(match.group(1))
+#             if num >= 60000 or num <= 1000:
+#                 pass
+#             else:
+#                 order_name = str(num)
+#                 break
+#     return order_name.append(str(num))
+
 
 def detect_order_name(message):
-    for text in [message["subject"],message["data"]]:
-        order_name = "not found"
-        match = re.search(r"\D(\d{4,5})\D","{}{}{}".format("a",text,"a"))
-        if match:
-            num = int(match.group(1))
-            if num < 60000 and num > 1000:
-                order_name = str(num)
-                break
-    return order_name
-    
-    
+    text = message["subject"] + message["data"]
+    order_name = list()
+    lstr_order_name = re.findall(r"\d+", text)
+    lint_order_name = [int(x) for x in lstr_order_name]
+    for num in lint_order_name :
+        if num < 60000 and num > 1000:
+            order_name.append(num)
+    print(order_name)
+    if order_name :
+        return order_name
+    else :
+        return "not_found"
+
+########################
+    #Detection menace
+#######################
+
 def detect_irritation_score(message):
     lst1 = ("arnaque","escro","voleur","colere","colère","pas content","mecontent","mécontent","honte","inadmissible","fureur","furie","fache","fâche","rage","inacceptable","inexcusable")
     lst2 = ("plainte","justice","judiciaire","polic","flic","gendarmerie","demeure","avocat","tribunal","services compétents")
@@ -606,8 +631,13 @@ def detect_irritation_score(message):
             menace = True
             
     return score, menace
-    
-    
+
+
+#################################################
+    #Deepl translate
+#################################################
+
+    #traduction de la langue dans le message front
 def deepl_front(text):
 
     error = True
@@ -630,7 +660,7 @@ def deepl_front(text):
         translation = translations[0]["text"]
         return source_language, translation
         
-
+    # Renvoi le texte pour le traduction du back-end
 def deepl_back(text, target_lang):
 
     tags = re.findall(r"<[^>]*>", text)
@@ -737,7 +767,7 @@ def shopify_date(date):
     return datetime(int(lst[0]),int(lst[1]),int(lst[2]))
 
 ########################################################
-
+    #?#?# --->>>~?# En revue ...
 def detect_question(text,subject):
     questions = []
     intentList = ["Default Fallback Intent"]
@@ -945,6 +975,8 @@ def build_answer(shop,order_info,message,questions,history,is_buffalo):
     return response, answer_id
 
 ###########################################
+    #BOT dans le shop
+###########################################
 
 def create_mime_msg(sender, message_text, message):
     mime_msg = MIMEText(message_text, "html")
@@ -955,7 +987,7 @@ def create_mime_msg(sender, message_text, message):
     mime_msg["References"] = message["Message_ID"]
     return {'raw':base64.urlsafe_b64encode(mime_msg.as_string().encode()).decode(), "threadId":message["threadId"]}
 
-
+    #Precision des information de la commande en date = day
 def build_text_msg(shop,response,answer_id,message,order_info,history):
     global img
     if "time" in order_info.keys():
@@ -978,7 +1010,9 @@ def build_text_msg(shop,response,answer_id,message,order_info,history):
     if "name" in order_info.keys():
         response2 = response2.replace("{order_name}",order_info["name"])
     response2 = response2.replace("{time}",time_txt)
-    
+
+
+    #Si heure est >= 19 dire bonsoir sinon bonjour
     now = datetime.now()
     if now.hour >= 19:
         hello = "Bonsoir"
@@ -1010,8 +1044,9 @@ def build_text_msg(shop,response,answer_id,message,order_info,history):
     if message["source_language"] != "FR":
         message_text = deepl_back(message_text, message["source_language"]).replace("<","")
     return message_text
-    
-    
+
+
+    #Detection des menaces du client
 def fb_new(shop,questions,order_info,message,answer_id,menace,score):
     if "modify_adress" in questions and order_info == {}:
         file = open("shops/{}/messages_cache.csv".format(shop),"r")
@@ -1087,7 +1122,8 @@ def fb_new(shop,questions,order_info,message,answer_id,menace,score):
         file.close()
         
     return None
-    
+
+    #Info sur la suivi de la commande et date de livraison
 def build_fb_answer(shop,order_info,message,rep_text,sender):
     global today_msg,today_nt,credit
     order_time = str(order_info["order_time"])
@@ -1119,7 +1155,7 @@ def build_fb_answer(shop,order_info,message,rep_text,sender):
 ########################################
 
 
-def shopify_modify_address(shop,contexts,order_id):
+def shopify_modify_address(shop, contexts, order_id, old_number=None):
     for context in contexts:
         if context["name"] == "modify_adress-followup":
             if "parameters" in context.keys():
@@ -1136,7 +1172,7 @@ def shopify_modify_address(shop,contexts,order_id):
     elif "number" in parameters.keys():
         number = "{} ".format(parameters["number"])
         old = " {}".format(address["address1"])
-        address["address1"] = re.sub(r"\D\d+\D", number, old)
+        address["address1"] = re.sub(r"\D\d+\D", number, old_number)
     if "any" in parameters.keys():
         address["address2"] += parameters["any"]
     if "zip-code" in parameters.keys():
@@ -1157,8 +1193,8 @@ def shopify_modify_address(shop,contexts,order_id):
     put_data = {"order":{"id":order_id, "shipping_address":address}}
     shopify_request(shop,"put","orders/{}.json".format(order_id),put_data=put_data)
     return True
-    ####
-def shopify_refund(shop,order_id) -> object:
+
+def shopify_refund(shop,order_id):
     r = shopify_request(shop,"get","orders/{}.json".format(order_id),"?status=any&fields=line_items")
     line_items = r.json()["order"]["line_items"]
     line_items_2 = []
@@ -1224,10 +1260,9 @@ def do_action(shop,owner,action,contexts,order_info,message):
     if send:
         if not is_draft:
             gmail_request(shop,"post","messages/send",endpoints="", post_data=mime_msg)
-            # gmail_request(shop,"post","drafts",endpoints="", post_data={"message":mime_msg})
+
         else:
             gmail_request(shop,"post","drafts",endpoints="", post_data={"message":mime_msg})
-        
 
     
     
@@ -1326,7 +1361,8 @@ while True:
                                     gmail_request("BUFFALO","post","drafts",endpoints="", post_data={"message":mime_msg})
                                     break
                             if q:
-                                response = "Afin de pouvoir vous aider, pourriez vous poser cette question en répondant au mail de confirmation de commande que vous avez reçu au moment de l'achat."
+                                response = "Afin de pouvoir vous aider, pourriez vous poser cette question en répondant " \
+                                           "au mail de confirmation de commande que vous avez reçu au moment de l'achat."
                                 message_text = build_text_msg(shop,response,"",message,{},history)
                                 mime_msg = create_mime_msg(sav_mail["BUFFALO"], message_text, message)
                                 gmail_request("BUFFALO","post","messages/send",endpoints="", post_data=mime_msg)
@@ -1432,7 +1468,7 @@ while True:
                             
                             print("response :\n" + str(message_text))
                     
-
+                        #fb_new(shop,questions,order_info,message,answer_id,menace,score)
                     
                     elif message["data"] == "too_long":
                         message_text = "This message is too complicated, maybe it's not from a customer."
@@ -1444,8 +1480,8 @@ while True:
                 
                 ###################
                 
-
+                #update_clients_dic(clients,owner,today_msg+1,today_nt,credit-1)
                     
                 append_message_id(message_id)
                 
-                print("history saved ! waiting for another message\n")
+                #print("history saved ! waiting for another message\n")
